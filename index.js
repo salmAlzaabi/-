@@ -1,23 +1,34 @@
 require('dotenv').config();
+const path = require('path');
 
-// تسجيل الخط العربي مرة واحدة للكل
+// تسجيل الخط العربي لمكتبة canvas
 try {
   const { registerFont } = require("canvas");
-  const path = require("path");
   registerFont(
-path.join(__dirname, "img", "fonts", "Cairo-Bold.ttf"),
-{ family: "NotoArabic" }
+    path.join(__dirname, "img", "fonts", "Cairo-Bold.ttf"),
+    { family: "NotoArabic" }
   );
-  console.log("[Canvas] Arabic font loaded successfully.");
+  console.log("[Canvas] Arabic font loaded.");
 } catch (e) {
   console.warn("[Canvas] Arabic font not loaded:", e.message);
+}
+
+// تسجيل الخط العربي لمكتبة @napi-rs/canvas
+try {
+  const napiCanvas = require("@napi-rs/canvas");
+  napiCanvas.GlobalFonts.registerFromPath(
+    path.join(__dirname, "img", "fonts", "Cairo-Bold.ttf"),
+    "NotoArabic"
+  );
+  console.log("[Napi Canvas] Arabic font loaded.");
+} catch (e) {
+  console.warn("[Napi Canvas] Arabic font not loaded:", e.message);
 }
 
 const express = require('express');
 const app = express();
 const { Client, GatewayIntentBits, Collection, AttachmentBuilder, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs');
-const path = require('path');
 const db = require('./database.js');
 const settings = require('./settings.js');
 
