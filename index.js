@@ -5,8 +5,8 @@ try {
   const { registerFont } = require("canvas");
   const path = require("path");
   registerFont(
-    path.join(__dirname, "img", "fonts", "NotoNaskhArabic-Regular.ttf"),
-    { family: "NotoArabic" }
+path.join(__dirname, "img", "Cairo-Bold.ttf"),
+{ family: "NotoArabic" }
   );
   console.log("[Canvas] Arabic font loaded successfully.");
 } catch (e) {
