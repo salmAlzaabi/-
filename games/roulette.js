@@ -14,8 +14,8 @@ const path = require("path");
 // تسجيل الخط العربي - ضع الخط في img/fonts/NotoNaskhArabic-Regular.ttf
 try {
   registerFont(
-    path.join(__dirname, "..", "img", "fonts", "NotoNaskhArabic-Regular.ttf"),
-    { family: "NotoArabic" }
+path.join(__dirname, "..", "img", "fonts", "Cairo-Bold.ttf"),
+{ family: "NotoArabic" }
   );
   console.log("[Roulette] Arabic font loaded successfully.");
 } catch (e) {
