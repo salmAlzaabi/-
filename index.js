@@ -1,4 +1,18 @@
 require('dotenv').config();
+
+// تسجيل الخط العربي مرة واحدة للكل
+try {
+  const { registerFont } = require("canvas");
+  const path = require("path");
+  registerFont(
+    path.join(__dirname, "img", "fonts", "NotoNaskhArabic-Regular.ttf"),
+    { family: "NotoArabic" }
+  );
+  console.log("[Canvas] Arabic font loaded successfully.");
+} catch (e) {
+  console.warn("[Canvas] Arabic font not loaded:", e.message);
+}
+
 const express = require('express');
 const app = express();
 const { Client, GatewayIntentBits, Collection, AttachmentBuilder, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
