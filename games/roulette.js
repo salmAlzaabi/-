@@ -8,9 +8,19 @@ const {
 
 const db = require("../database.js"); 
 
-const { createCanvas, loadImage } = require("canvas");
+const { createCanvas, loadImage, registerFont } = require("canvas");
 const path = require("path");
 
+// تسجيل الخط العربي - ضع الخط في img/fonts/NotoNaskhArabic-Regular.ttf
+try {
+  registerFont(
+    path.join(__dirname, "..", "img", "fonts", "NotoNaskhArabic-Regular.ttf"),
+    { family: "NotoArabic" }
+  );
+  console.log("[Roulette] Arabic font loaded successfully.");
+} catch (e) {
+  console.warn("[Roulette] Arabic font not found, text may appear as boxes:", e.message);
+}
 
 const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 20;
@@ -53,6 +63,22 @@ function clampLabel(s, max = 80) {
   s = String(s);
   return s.length > max ? s.slice(0, max - 2) + ".." : s;
 }
+
+// دالة لاختيار الخط العربي مع fallback
+function getArabicFont(size) {
+  return `bold ${size}px "NotoArabic", "Arial", sans-serif`;
+}
+
+// دالة لرسم النص بدعم العربي
+function drawArabicText(ctx, text, x, y, fontSize) {
+  ctx.save();
+  ctx.font = getArabicFont(fontSize);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
 async function startGame(context, nowTime, callback) {
   const players = [];
   let lobbyEmbed = new EmbedBuilder()
@@ -961,8 +987,6 @@ async function prepareRound(
                   context.channel.send(
                     `<@${randomPlayerId}> لم تختر أحد للإحياء.`
                   );
-                  
-                  
                   stopAll("done");
                   prepareRound(
                     context,
@@ -1021,7 +1045,7 @@ async function prepareRound(
                   targetObj.reverseUntilRound = ROUND_COUNTER + 1;
                   chooserObj.usedAbilities.add("reverse"); 
                   await ai.update({
-                    content: `?? | تم تطبيق طرد عكسي على <@${targetId}> للجولة القادمة.`,
+                    content: `🔁 | تم تطبيق طرد عكسي على <@${targetId}> للجولة القادمة.`,
                     components: [],
                   });
                 } else if (chosenAbility === "protect") {
@@ -1119,7 +1143,7 @@ async function prepareRound(
                   players,
                   eliminatedPlayers,
                   client,
-callback
+                  callback
                 );
               }
             } catch (e) {
@@ -1195,9 +1219,6 @@ async function checkJoiningGameAbility(i, players) {
 async function eliminatedPlayersButtons(eliminatedPlayers) {
   const maxButtonsPerRow = 5;
   let rows = [];
-  function short(n, len = 12) {
-    return n.length > len ? n.slice(0, len - 2) + ".." : n;
-  }
   for (let i = 0; i < eliminatedPlayers.length; i += maxButtonsPerRow) {
     const buttons = eliminatedPlayers
       .slice(i, i + maxButtonsPerRow)
@@ -1270,7 +1291,7 @@ async function selectRandomPlayer(context, players) {
     ctx.fillStyle = "#2f3136";
     ctx.fillRect(0, 0, 350, 350);
     ctx.fillStyle = "#ffffff";
-    ctx.font = "20px Arial";
+    ctx.font = getArabicFont(20);
     ctx.textAlign = "center";
     ctx.fillText("تم اختيار لاعب عشوائي", 175, 160);
     ctx.fillText(playerChosen.username, 175, 190);
@@ -1329,7 +1350,7 @@ async function createStaticRouletteImage(shuffledMembers, chosenId) {
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      
+      // رسم النص داخل القطاع
       ctx.save();
 
       const textRadius = innerRadius + (wheelRadius - innerRadius) * 0.78;
@@ -1342,12 +1363,28 @@ async function createStaticRouletteImage(shuffledMembers, chosenId) {
       if (mid > Math.PI / 2 && mid < (3 * Math.PI) / 2) ctx.rotate(Math.PI);
 
       const label = clampLabel(player.username, 16);
-      const fontSize = Math.max(12, Math.min(20, 180 / label.length));
-      ctx.font = `${fontSize}px "Arial"`;
+      // حساب حجم الخط بشكل ديناميكي
+      const fontSize = Math.max(12, Math.min(20, 180 / Math.max(label.length, 1)));
+
+      // استخدام الخط العربي
+      ctx.font = getArabicFont(fontSize);
       ctx.fillStyle = isChosen ? "#39ff14" : "#ffffff";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+
+      // رسم ظل للنص لتحسين الوضوح
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 1;
       ctx.fillText(label, 0, 0);
+
+      // إزالة الظل
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+
       ctx.restore();
     }
 
@@ -1391,15 +1428,12 @@ async function createStaticRouletteImage(shuffledMembers, chosenId) {
     ctx.fillStyle = "#2f3136";
     ctx.fillRect(0, 0, 300, 300);
     ctx.fillStyle = "#fff";
-    ctx.font = "20px Arial";
+    ctx.font = getArabicFont(20);
     ctx.textAlign = "center";
     ctx.fillText("تم اختيار لاعب", 150, 140);
     return fallback.toBuffer("image/png");
   }
 }
-
-
-
 
 
 function getRandomWinPoints() {
