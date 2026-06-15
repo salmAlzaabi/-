@@ -1,21 +1,12 @@
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 const db = require('../database.js');
-const fs = require('fs');
 
 const COLOR = "#d4be78";
+const POINTS_ROLE = "1501984311115776131";
 
-const readAdminSettings = () => {
-  try {
-    return JSON.parse(fs.readFileSync('./admin_settings.json', 'utf8'));
-  } catch {
-    return { adminRoles: [], eventRoles: [] };
-  }
-};
-
-const hasAdminPermission = (member) => {
-  if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-  const s = readAdminSettings();
-  return member.roles.cache.some(r => [...(s.adminRoles || []), ...(s.eventRoles || [])].includes(r.id));
+const hasPointsPermission = (member) => {
+  if (member.permissions.has(8n)) return true; // Administrator
+  return member.roles.cache.has(POINTS_ROLE);
 };
 
 function errorEmbed(msg) {
@@ -29,7 +20,7 @@ module.exports = {
     const sub = args[0];
 
     if (sub === 'addpoints') {
-      if (!hasAdminPermission(message.member)) {
+      if (!hasPointsPermission(message.member)) {
         return message.reply({ embeds: [errorEmbed('You do not have permission to use this command.')] });
       }
       const target = message.mentions.users.first();
@@ -49,7 +40,7 @@ module.exports = {
     }
 
     if (sub === 'removepoints') {
-      if (!hasAdminPermission(message.member)) {
+      if (!hasPointsPermission(message.member)) {
         return message.reply({ embeds: [errorEmbed('You do not have permission to use this command.')] });
       }
       const target = message.mentions.users.first();
@@ -69,7 +60,7 @@ module.exports = {
     }
 
     if (sub === 'setpoints') {
-      if (!hasAdminPermission(message.member)) {
+      if (!hasPointsPermission(message.member)) {
         return message.reply({ embeds: [errorEmbed('You do not have permission to use this command.')] });
       }
       const target = message.mentions.users.first();
