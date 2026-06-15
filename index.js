@@ -1,25 +1,17 @@
 require('dotenv').config();
 const path = require('path');
 
-// تسجيل الخط العربي لمكتبة canvas
+// Arabic font registration
 try {
   const { registerFont } = require("canvas");
-  registerFont(
-    path.join(__dirname, "img", "fonts", "Cairo-Bold.ttf"),
-    { family: "NotoArabic" }
-  );
+  registerFont(path.join(__dirname, "img", "fonts", "Cairo-Bold.ttf"), { family: "NotoArabic" });
   console.log("[Canvas] Arabic font loaded.");
 } catch (e) {
   console.warn("[Canvas] Arabic font not loaded:", e.message);
 }
-
-// تسجيل الخط العربي لمكتبة @napi-rs/canvas
 try {
   const napiCanvas = require("@napi-rs/canvas");
-  napiCanvas.GlobalFonts.registerFromPath(
-    path.join(__dirname, "img", "fonts", "Cairo-Bold.ttf"),
-    "NotoArabic"
-  );
+  napiCanvas.GlobalFonts.registerFromPath(path.join(__dirname, "img", "fonts", "Cairo-Bold.ttf"), "NotoArabic");
   console.log("[Napi Canvas] Arabic font loaded.");
 } catch (e) {
   console.warn("[Napi Canvas] Arabic font not loaded:", e.message);
@@ -27,37 +19,30 @@ try {
 
 const express = require('express');
 const app = express();
-const { Client, GatewayIntentBits, Collection, AttachmentBuilder, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const fs = require('fs');
 const db = require('./database.js');
 const settings = require('./settings.js');
 
-app.get('/', (req, res) => {
-  res.send('Hello Express app!');
-});
-
-app.listen(3000, () => {
-  console.log('bot by wick studio/q3yb ( darkAngel ) ©2025 all rights reserved');
-});
+app.get('/', (req, res) => res.send('Hello Express app!'));
+app.listen(3000, () => console.log('bot by wick studio/q3yb ( darkAngel ) ©2025 all rights reserved'));
 
 const getPrefix = () => {
   try {
-    const adminSettings = JSON.parse(fs.readFileSync('./admin_settings.json', 'utf8'));
-    return adminSettings.prefix || '-';
-  } catch (err) {
-    return '-';
-  }
+    return JSON.parse(fs.readFileSync('./admin_settings.json', 'utf8')).prefix || '-';
+  } catch { return '-'; }
 };
+
 const activeGames = new Map();
+
 const loadGroupGames = () => {
   try {
     const data = fs.readFileSync('./groupgames.txt', 'utf8');
-    const filenames = data.split('\n').filter(Boolean);
-    const gameNames = filenames.map(f => f.trim().replace('.js', ''));
+    const gameNames = data.split('\n').filter(Boolean).map(f => f.trim().replace('.js', ''));
     console.log('[Game Loader] Loaded group games:', gameNames);
     return new Set(gameNames);
-  } catch (err) {
-    console.warn('⚠️ | groupgames.txt not found. No group games will be loaded.');
+  } catch {
+    console.warn('⚠️ | groupgames.txt not found.');
     return new Set();
   }
 };
@@ -73,50 +58,28 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-const commandFolders = ['commands'];
-const gameFolders = ['games'];
+client.games = new Collection();
 
-for (const folder of commandFolders) {
-  const commandFiles = fs.readdirSync(`./${folder}`).filter(file => file.endsWith('.js'));
-  for (const file of commandFiles) {
-    const command = require(`./${folder}/${file}`);
-    client.commands.set(command.name, command);
-  }
+const commandFiles = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
+for (const file of commandFiles) {
+  const command = require(`./commands/${file}`);
+  client.commands.set(command.name, command);
 }
 
-client.games = new Collection();
-for (const folder of gameFolders) {
-  const gameFiles = fs.readdirSync(`./${folder}`).filter(file => file.endsWith('.js'));
-  for (const file of gameFiles) {
-    const game = require(`./${folder}/${file}`);
-    client.games.set(game.name, game);
-  }
+const gameFiles = fs.readdirSync('./games').filter(f => f.endsWith('.js'));
+for (const file of gameFiles) {
+  const game = require(`./games/${file}`);
+  client.games.set(game.name, game);
 }
 
 const readAdminSettings = () => {
   try {
-    const data = fs.readFileSync('./admin_settings.json', 'utf8');
-    const settings = JSON.parse(data);
-    if (!settings.disabledCommands) settings.disabledCommands = {};
-    if (!settings.eventRoles) settings.eventRoles = [];
-    if (!settings.adminRoles) settings.adminRoles = [];
-    return settings;
-  } catch (err) {
-    console.error('Error reading admin settings:', err);
-    return { disabledCommands: {}, eventRoles: [], adminRoles: [] };
-  }
-};
-
-const hasEventPermission = (member) => {
-  if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-  const adminSettings = readAdminSettings();
-  return member.roles.cache.some(role => adminSettings.eventRoles.includes(role.id));
-};
-
-const hasAdminPermission = (member) => {
-  if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-  const adminSettings = readAdminSettings();
-  return member.roles.cache.some(role => adminSettings.adminRoles.includes(role.id));
+    const s = JSON.parse(fs.readFileSync('./admin_settings.json', 'utf8'));
+    if (!s.disabledCommands) s.disabledCommands = {};
+    if (!s.eventRoles) s.eventRoles = [];
+    if (!s.adminRoles) s.adminRoles = [];
+    return s;
+  } catch { return { disabledCommands: {}, eventRoles: [], adminRoles: [] }; }
 };
 
 client.on("ready", () => {
@@ -137,10 +100,8 @@ client.on("messageCreate", async message => {
     const command = client.commands.get(commandName) || client.commands.find(cmd => cmd.aliases && cmd.aliases.includes(commandName));
 
     if (command) {
-      try {
-        command.execute(message, args);
-        return;
-      } catch (error) {
+      try { command.execute(message, args); return; }
+      catch (error) {
         console.error(error);
         message.reply('حدث خطأ أثناء محاولة تنفيذ هذا الأمر!');
         return;
@@ -152,15 +113,9 @@ client.on("messageCreate", async message => {
     if (game && isAllowedChannel) {
       try {
         let adminSettings = {};
-        try {
-          adminSettings = JSON.parse(fs.readFileSync('./admin_settings.json', 'utf8'));
-        } catch (err) {
-          // console.error('Error reading admin settings:', err); // معطل
-        }
+        try { adminSettings = JSON.parse(fs.readFileSync('./admin_settings.json', 'utf8')); } catch {}
 
-        if (adminSettings.disabledCommands &&
-          adminSettings.disabledCommands[message.channel.id] &&
-          adminSettings.disabledCommands[message.channel.id].includes(game.name)) {
+        if (adminSettings.disabledCommands?.[message.channel.id]?.includes(game.name)) {
           message.channel.send(`❌ | لعبة ${game.name} معطلة في هذه القناة.`);
           return;
         }
@@ -177,7 +132,6 @@ client.on("messageCreate", async message => {
             activeGames.delete(gameKey);
             console.log(`[Game Lock] Released for group game: ${game.name}`);
           });
-
         } else {
           game.execute(message, args, (userId, isCorrect, timeTaken, correctAnswer) => {
             activeGames.delete(gameKey);
@@ -185,18 +139,16 @@ client.on("messageCreate", async message => {
               db.addPoints(userId, 1);
               const points = db.getUserPoints(userId);
               const pointsButton = new ButtonBuilder()
-                  .setCustomId(`points_button_${userId}`)
-                  .setLabel(String(points))
-                  .setEmoji('<:99AA_Primogem:1003301460739629187>')
-                  .setStyle(ButtonStyle.Secondary)
-                  .setDisabled(true);
-              const row = new ActionRowBuilder()
-                  .addComponents(pointsButton);
+                .setCustomId(`points_button_${userId}`)
+                .setLabel(String(points))
+                .setEmoji('<:99AA_Primogem:1003301460739629187>')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true);
+              const row = new ActionRowBuilder().addComponents(pointsButton);
               message.channel.send({
-                  content: `<@${userId}> أجاب بشكل صحيح خلال **${timeTaken.toFixed(2)} ثانية!**`,
-                  components: [row]
+                content: `<@${userId}> أجاب بشكل صحيح خلال **${timeTaken.toFixed(2)} ثانية!**`,
+                components: [row]
               });
-
             } else {
               if (correctAnswer) {
                 message.channel.send(`🕒 | انتهى الوقت، لم يجب أحد على السؤال.\n✅ الجواب الصحيح كان: **${correctAnswer}**`);
@@ -207,7 +159,6 @@ client.on("messageCreate", async message => {
           });
         }
         return;
-
       } catch (error) {
         const gameKey = `${commandName}-${message.channel.id}`;
         activeGames.delete(gameKey);
@@ -219,8 +170,151 @@ client.on("messageCreate", async message => {
   }
 });
 
-client.login(process.env.TOKEN).catch(() => {
-  console.log("Invalid Token");
+// ===== Points Panel Interactions =====
+const POINTS_COLOR = "#d4be78";
+const POINTS_ROLE = "1501984311115776131";
+
+const hasPointsPermission = (member) => {
+  if (member.permissions.has(8n)) return true;
+  return member.roles.cache.has(POINTS_ROLE);
+};
+
+client.on('interactionCreate', async (interaction) => {
+  try {
+    if (interaction.isButton()) {
+
+      if (interaction.customId === 'pts_view') {
+        const points = db.getUserPoints(interaction.user.id);
+        const top = db.getTopUsers(100);
+        const rank = top.findIndex(([id]) => id === interaction.user.id) + 1;
+        return interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle(`🎮 | ${interaction.user.username}'s Points`)
+              .setThumbnail(interaction.user.displayAvatarURL({ extension: 'png' }))
+              .addFields(
+                { name: '💰 Points', value: `**${points}** pts`, inline: true },
+                { name: '🏅 Rank', value: rank ? `**#${rank}**` : '—', inline: true },
+              )
+              .setColor(POINTS_COLOR)
+              .setTimestamp()
+          ],
+          ephemeral: true
+        });
+      }
+
+      if (interaction.customId === 'pts_give') {
+        const modal = new ModalBuilder()
+          .setCustomId('pts_give_modal')
+          .setTitle('Transfer Points');
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId('pts_user_id')
+              .setLabel('Recipient User ID')
+              .setStyle(TextInputStyle.Short)
+              .setPlaceholder('Enter user ID...')
+              .setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId('pts_amount')
+              .setLabel('Amount to Transfer')
+              .setStyle(TextInputStyle.Short)
+              .setPlaceholder('Enter amount...')
+              .setRequired(true)
+          )
+        );
+        return interaction.showModal(modal);
+      }
+
+      if (interaction.customId === 'pts_top') {
+        const top = db.getTopUsers(10);
+        if (!top.length) {
+          return interaction.reply({ embeds: [new EmbedBuilder().setColor('#ff4444').setDescription('❌ | No points recorded yet.')], ephemeral: true });
+        }
+        const medals = ['🥇', '🥈', '🥉'];
+        const desc = top.map(([userId, pts], i) => {
+          const medal = medals[i] || `**${i + 1}.**`;
+          return `${medal} <@${userId}> — **${pts}** pts`;
+        }).join('\n');
+        return interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle('🏆 | Leaderboard')
+              .setDescription(desc)
+              .setColor(POINTS_COLOR)
+              .setFooter({ text: 'Top 10 players by points' })
+              .setTimestamp()
+          ],
+          ephemeral: false
+        });
+      }
+    }
+
+    if (interaction.isModalSubmit()) {
+      if (interaction.customId === 'pts_give_modal') {
+        const userId = interaction.fields.getTextInputValue('pts_user_id').trim();
+        const amount = parseInt(interaction.fields.getTextInputValue('pts_amount').trim());
+
+        if (isNaN(amount) || amount <= 0) {
+          return interaction.reply({ embeds: [new EmbedBuilder().setColor('#ff4444').setDescription('❌ | Invalid amount.')], ephemeral: true });
+        }
+        if (userId === interaction.user.id) {
+          return interaction.reply({ embeds: [new EmbedBuilder().setColor('#ff4444').setDescription('❌ | You cannot transfer points to yourself.')], ephemeral: true });
+        }
+
+        let targetUser;
+        try {
+          targetUser = await client.users.fetch(userId);
+        } catch {
+          return interaction.reply({ embeds: [new EmbedBuilder().setColor('#ff4444').setDescription('❌ | User not found.')], ephemeral: true });
+        }
+
+        const senderBalance = db.getUserPoints(interaction.user.id);
+        if (senderBalance < amount) {
+          return interaction.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor('#ff4444')
+                .setTitle('❌ | Insufficient Balance')
+                .addFields(
+                  { name: '💰 Your Balance', value: `**${senderBalance}** pts`, inline: true },
+                  { name: '💸 Requested', value: `**${amount}** pts`, inline: true },
+                  { name: '❗ Missing', value: `**${amount - senderBalance}** pts`, inline: true },
+                )
+            ],
+            ephemeral: true
+          });
+        }
+
+        db.removePoints(interaction.user.id, amount);
+        db.addPoints(targetUser.id, amount);
+        const senderNew = db.getUserPoints(interaction.user.id);
+        const receiverNew = db.getUserPoints(targetUser.id);
+
+        return interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(POINTS_COLOR)
+              .setTitle('✅ | Transfer Complete')
+              .addFields(
+                { name: '👤 From', value: `<@${interaction.user.id}>`, inline: true },
+                { name: '👤 To', value: `<@${targetUser.id}>`, inline: true },
+                { name: '💸 Amount', value: `**${amount}** pts`, inline: true },
+                { name: '💰 Your New Balance', value: `**${senderNew}** pts`, inline: true },
+                { name: '💰 Their New Balance', value: `**${receiverNew}** pts`, inline: true },
+              )
+              .setTimestamp()
+          ],
+          ephemeral: true
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Interaction error:', err);
+  }
 });
 
+client.login(process.env.TOKEN).catch(() => console.log("Invalid Token"));
 module.exports = { client };
