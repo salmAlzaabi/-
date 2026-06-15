@@ -18,7 +18,8 @@ module.exports = {
       .setTitle('🏷️ | Role Creator')
       .setDescription('> create a new role.\n> This embed is customized for Soso.')
       .setColor(COLOR)
-      .setFooter({ text: 'Role Creator System' });
+      .setFooter({ text: 'B3iony Soso' });
+
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
