@@ -14,14 +14,32 @@ const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 20;
 const TIME_TO_START = 40000;
 const COLOR = "#d4be78";
-// Sequential number emojis 1-20 (single digits use keycaps, 10+ combine keycaps)
+// Numbers 1-10 use valid single-emoji keycaps. Discord does NOT allow
+// multi-emoji strings in setEmoji(), so 11-20 use a plain text label instead.
 const digitEmoji = ["0️⃣","1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"];
 const numberToEmoji = (n) => {
   if (n <= 9) return digitEmoji[n];
   if (n === 10) return "🔟";
-  return String(n).split("").map((d) => digitEmoji[parseInt(d)]).join("");
+  return null; // no single emoji exists for 11-20
 };
 const emojis = Array.from({ length: 20 }, (_, i) => numberToEmoji(i + 1));
+const numberLabel = (n) => String(n);
+
+// Apply the correct number representation to a button: emoji for 1-10,
+// text label for 11-20 (Discord disallows multi-char emoji strings).
+function applyNumberToButton(builder, index, fallbackLabel) {
+  const emoji = emojis[index];
+  if (emoji) {
+    return builder.setEmoji(emoji).setLabel(fallbackLabel ?? "\u200B");
+  }
+  const num = numberLabel(index + 1);
+  return builder.setLabel(fallbackLabel ? `${num} | ${fallbackLabel}` : num);
+}
+
+// Text representation of a player's number for use in plain messages.
+function numberDisplay(index) {
+  return emojis[index] || `#${index + 1}`;
+}
 
 module.exports = {
   name: "roulette",
@@ -60,13 +78,14 @@ async function startGame(context, nowTime, callback) {
       const row = new ActionRowBuilder();
       for (let j = 0; j < 5; j++) {
         const index = i * 5 + j;
-        if (index < emojis.length) {
+        if (index < emojis.length || index < 20) {
           row.addComponents(
-            new ButtonBuilder()
-              .setCustomId(`place_${index}`)
-              .setEmoji(emojis[index] || "🔲")
-              .setLabel("\u200B")
-              .setStyle(ButtonStyle.Secondary)
+            applyNumberToButton(
+              new ButtonBuilder()
+                .setCustomId(`place_${index}`)
+                .setStyle(ButtonStyle.Secondary),
+              index
+            )
           );
         }
       }
@@ -81,12 +100,12 @@ async function startGame(context, nowTime, callback) {
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId("exit")
-        .setEmoji("<:Gleave:1285563197092401214>")
+        .setEmoji("🚪")
         .setLabel("خروج")
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId("explain")
-        .setEmoji("<:GBook:1285560569021202504>")
+        .setEmoji("📖")
         .setLabel("شرح اللعبة ")
         .setStyle(ButtonStyle.Secondary)
     );
@@ -106,7 +125,7 @@ async function startGame(context, nowTime, callback) {
     const sorted = [...players].sort((a, b) => a.index - b.index);
     const playerListText =
       sorted.length > 0
-        ? sorted.map((p) => `${emojis[p.index]} <@${p.id}>`).join(" | ")
+        ? sorted.map((p) => `${numberDisplay(p.index)} <@${p.id}>`).join(" | ")
         : "لا يوجد لاعبين بعد";
 
     lobbyContent = buildLobbyContent(players.length, playerListText);
@@ -123,13 +142,17 @@ async function startGame(context, nowTime, callback) {
             const p = players.find((pl) => pl.index === idx);
 
             if (p) {
-              return ButtonBuilder.from(button)
-                .setDisabled(true)
-                .setLabel(clampLabel(p.username, 80));
+              const taken = ButtonBuilder.from(button).setDisabled(true);
+              if (emojis[idx]) {
+                return taken.setLabel(clampLabel(p.username, 80));
+              }
+              return taken.setLabel(clampLabel(`${idx + 1} - ${p.username}`, 80));
             } else {
-              return ButtonBuilder.from(button)
-                .setDisabled(false)
-                .setLabel("\u200B");
+              const free = ButtonBuilder.from(button).setDisabled(false);
+              if (emojis[idx]) {
+                return free.setLabel("\u200B");
+              }
+              return free.setLabel(String(idx + 1));
             }
           }
         } catch (e) {}
@@ -268,10 +291,14 @@ async function startGame(context, nowTime, callback) {
 }
 
 function makePlayer(i, index) {
+  const member = i.member;
+  const displayName =
+    member?.nickname || member?.displayName || i.user.globalName || i.user.username || i.user.tag.split("#")[0];
+
   return {
     id: i.user.id,
     index,
-    username: i.user.username || i.user.tag.split("#")[0],
+    username: displayName,
     avatarURL:
       i.user.displayAvatarURL({ extension: "png", forceStatic: true }) ||
       "https://cdn.discordapp.com/embed/avatars/0.png",
@@ -363,7 +390,7 @@ async function prepareRound(context, players, eliminatedPlayers, client, callbac
       const isFrozen = chooserObj.frozenUntilRound >= gameState.roundCounter;
       if (isFrozen) {
         await context.channel.send(
-          `<:GXMark:1285614465928138847> | <@${randomPlayerId}> مجمد ولا يستطيع التصرف وتمت إزالته.`
+          `❌ | <@${randomPlayerId}> مجمد ولا يستطيع التصرف وتمت إزالته.`
         );
         await lose(randomPlayerId, context);
         eliminatedPlayers.push(chooserObj);
@@ -379,11 +406,13 @@ async function prepareRound(context, players, eliminatedPlayers, client, callbac
       const chunkSize = 5;
       for (let i = 0; i < filteredPlayers.length; i += chunkSize) {
         const comps = filteredPlayers.slice(i, i + chunkSize).map((pl) =>
-          new ButtonBuilder()
-            .setCustomId(`eliminate_${pl.id}`)
-            .setEmoji(emojis[pl.index] || "🔲")
-            .setLabel(clampLabel(pl.username, 80))
-            .setStyle(ButtonStyle.Secondary)
+          applyNumberToButton(
+            new ButtonBuilder()
+              .setCustomId(`eliminate_${pl.id}`)
+              .setStyle(ButtonStyle.Secondary),
+            pl.index,
+            clampLabel(pl.username, 70)
+          )
         );
         targetRows.push(new ActionRowBuilder().addComponents(...comps));
       }
@@ -448,7 +477,7 @@ async function prepareRound(context, players, eliminatedPlayers, client, callbac
       actionButtons.push(
         new ButtonBuilder()
           .setCustomId("eliminate_withdraw")
-          .setEmoji("<:Gleave:1285563197092401214>")
+          .setEmoji("🚪")
           .setLabel("الانسحاب")
           .setStyle(ButtonStyle.Danger)
       );
@@ -733,11 +762,13 @@ async function prepareRound(context, players, eliminatedPlayers, client, callbac
             } else if (cid.startsWith("ability_")) {
               const ability = cid.split("_")[1];
               const abilityTargets = players.map((p) =>
-                new ButtonBuilder()
-                  .setCustomId(`abilitytarget_${ability}_${p.id}`)
-                  .setEmoji(emojis[p.index] || "🔲")
-                  .setLabel(clampLabel(p.username, 80))
-                  .setStyle(ButtonStyle.Secondary)
+                applyNumberToButton(
+                  new ButtonBuilder()
+                    .setCustomId(`abilitytarget_${ability}_${p.id}`)
+                    .setStyle(ButtonStyle.Secondary),
+                  p.index,
+                  clampLabel(p.username, 70)
+                )
               );
               const abilityRows = [];
               for (let r = 0; r < abilityTargets.length; r += 5)
@@ -827,7 +858,7 @@ async function prepareRound(context, players, eliminatedPlayers, client, callbac
                 players.splice(idx, 1);
                 eliminatedPlayers.push(chooserObjOnEnd);
                 lose(randomPlayerId, context);
-                context.channel.send(`<:GXMark:1285614465928138847> | <@${randomPlayerId}> لم تختر أحد وتم طردك.`);
+                context.channel.send(`❌ | <@${randomPlayerId}> لم تختر أحد وتم طردك.`);
                 stopAll("timeout");
                 prepareRound(context, players, eliminatedPlayers, client, callback, gameState);
               }
@@ -870,11 +901,13 @@ async function eliminatedPlayersButtons(eliminatedPlayers) {
   let rows = [];
   for (let i = 0; i < eliminatedPlayers.length; i += maxButtonsPerRow) {
     const buttons = eliminatedPlayers.slice(i, i + maxButtonsPerRow).map((player) =>
-      new ButtonBuilder()
-        .setCustomId(`revive_${player.id}`)
-        .setEmoji(emojis[player.index] || "🔲")
-        .setLabel(clampLabel(player.username, 80))
-        .setStyle(ButtonStyle.Secondary)
+      applyNumberToButton(
+        new ButtonBuilder()
+          .setCustomId(`revive_${player.id}`)
+          .setStyle(ButtonStyle.Secondary),
+        player.index,
+        clampLabel(player.username, 70)
+      )
     );
     if (buttons.length) rows.push(new ActionRowBuilder().addComponents(...buttons));
   }
@@ -907,8 +940,8 @@ async function mapPlayersToSectors(context, players) {
 async function selectRandomPlayer(context, players) {
   const messageContent =
     players.length === 2
-      ? "<:roulette:1286202270647586816> | العجلة تدور لاختيار الفائز..."
-      : "<:roulette:1286202270647586816> | العجلة تدور لاختيار اللاعب...";
+      ? "🎲 | العجلة تدور لاختيار الفائز..."
+      : "🎲 | العجلة تدور لاختيار اللاعب...";
   await context.channel.send(messageContent);
 
   try {
@@ -927,7 +960,7 @@ async function selectRandomPlayer(context, players) {
     ctx.fillStyle = "#2f3136";
     ctx.fillRect(0, 0, 350, 350);
     ctx.fillStyle = "#ffffff";
-    ctx.font = "20px Arial";
+    ctx.font = '20px "NotoArabic", "Arial", sans-serif';
     ctx.textAlign = "center";
     ctx.fillText("تم اختيار لاعب عشوائي", 175, 160);
     ctx.fillText(playerChosen.username, 175, 190);
@@ -993,7 +1026,7 @@ async function createStaticRouletteImage(shuffledMembers, chosenId) {
 
       const label = clampLabel(player.username, 16);
       const fontSize = Math.max(12, Math.min(20, 180 / label.length));
-      ctx.font = `${fontSize}px "Arial"`;
+      ctx.font = `${fontSize}px "NotoArabic", "Arial", sans-serif`;
       ctx.fillStyle = isChosen ? "#39ff14" : "#ffffff";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -1033,7 +1066,7 @@ async function createStaticRouletteImage(shuffledMembers, chosenId) {
     ctx.fillStyle = "#2f3136";
     ctx.fillRect(0, 0, 300, 300);
     ctx.fillStyle = "#fff";
-    ctx.font = "20px Arial";
+    ctx.font = '20px "NotoArabic", "Arial", sans-serif';
     ctx.textAlign = "center";
     ctx.fillText("تم اختيار لاعب", 150, 140);
     return fallback.toBuffer("image/png");
