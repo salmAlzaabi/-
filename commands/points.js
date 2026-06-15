@@ -1,88 +1,170 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const db = require('../database.js');
 
 const COLOR = "#d4be78";
 const POINTS_ROLE = "1501984311115776131";
+const PANEL_IMAGE = "https://cdn.discordapp.com/attachments/1500844249736937602/1515745446071504926/1195827812565798953.png?ex=6a30c833&is=6a2f76b3&hm=be997556330c2d498c2c07dfe1a9bf7799d1e6a6f379c50b55ac5a327ff61be3&animated=true";
 
 const hasPointsPermission = (member) => {
-  if (member.permissions.has(8n)) return true; // Administrator
+  if (member.permissions.has(8n)) return true;
   return member.roles.cache.has(POINTS_ROLE);
 };
 
-function errorEmbed(msg) {
-  return new EmbedBuilder().setColor('#ff4444').setDescription(`❌ | ${msg}`);
-}
-
 module.exports = {
   name: 'points',
-  aliases: ['pts', 'p'],
-  execute(message, args) {
-    const sub = args[0];
+  aliases: ['نقاط'],
+  async execute(message, args, client) {
 
-    if (sub === 'addpoints') {
+    // Panel command: -points panel
+    if (args[0] === 'panel') {
       if (!hasPointsPermission(message.member)) {
-        return message.reply({ embeds: [errorEmbed('You do not have permission to use this command.')] });
+        return message.reply({ embeds: [errorEmbed('You do not have permission.')] });
       }
-      const target = message.mentions.users.first();
-      const amount = parseInt(args[2]);
-      if (!target || isNaN(amount) || amount <= 0) {
-        return message.reply({ embeds: [errorEmbed('Usage: `-points addpoints @user <amount>`')] });
-      }
-      db.addPoints(target.id, amount);
-      const newPoints = db.getUserPoints(target.id);
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(COLOR)
-            .setDescription(`✅ | Added **${amount}** points to <@${target.id}>\n> **New Balance: ${newPoints} pts**`)
-        ]
+
+      const embed = new EmbedBuilder()
+        .setColor(COLOR)
+        .setImage(PANEL_IMAGE);
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('pts_view')
+          .setLabel('Points')
+          .setEmoji('💰')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('pts_give')
+          .setLabel('Give Points')
+          .setEmoji('➕')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('pts_top')
+          .setLabel('Leaderboard')
+          .setEmoji('🏆')
+          .setStyle(ButtonStyle.Primary),
+      );
+
+      const sent = await message.channel.send({ embeds: [embed], components: [row] });
+
+      const collector = sent.createMessageComponentCollector({ time: 0 }); // no timeout
+
+      collector.on('collect', async (i) => {
+        // View points
+        if (i.customId === 'pts_view') {
+          const points = db.getUserPoints(i.user.id);
+          const top = db.getTopUsers(100);
+          const rank = top.findIndex(([id]) => id === i.user.id) + 1;
+
+          return i.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle(`🎮 | ${i.user.username}'s Points`)
+                .setThumbnail(i.user.displayAvatarURL({ extension: 'png' }))
+                .addFields(
+                  { name: '💰 Points', value: `**${points}** pts`, inline: true },
+                  { name: '🏅 Rank', value: rank ? `**#${rank}**` : '—', inline: true },
+                )
+                .setColor(COLOR)
+                .setTimestamp()
+            ],
+            ephemeral: true
+          });
+        }
+
+        // Give points - only allowed role
+        if (i.customId === 'pts_give') {
+          if (!hasPointsPermission(i.member)) {
+            return i.reply({ embeds: [errorEmbed('You do not have permission to give points.')], ephemeral: true });
+          }
+
+          const modal = new ModalBuilder()
+            .setCustomId('pts_give_modal')
+            .setTitle('Give Points');
+
+          modal.addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('pts_user_id')
+                .setLabel('User ID')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Enter user ID...')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('pts_amount')
+                .setLabel('Amount')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Enter amount...')
+                .setRequired(true)
+            )
+          );
+
+          return i.showModal(modal);
+        }
+
+        // Leaderboard
+        if (i.customId === 'pts_top') {
+          const top = db.getTopUsers(10);
+          if (!top.length) {
+            return i.reply({ embeds: [errorEmbed('No points recorded yet.')], ephemeral: true });
+          }
+          const medals = ['🥇', '🥈', '🥉'];
+          const desc = top.map(([userId, pts], idx) => {
+            const medal = medals[idx] || `**${idx + 1}.**`;
+            return `${medal} <@${userId}> — **${pts}** pts`;
+          }).join('\n');
+
+          return i.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle('🏆 | Leaderboard')
+                .setDescription(desc)
+                .setColor(COLOR)
+                .setFooter({ text: 'Top 10 players by points' })
+                .setTimestamp()
+            ],
+            ephemeral: false
+          });
+        }
+
+        // Modal submit
+        if (i.customId === 'pts_give_modal') {
+          const userId = i.fields.getTextInputValue('pts_user_id').trim();
+          const amount = parseInt(i.fields.getTextInputValue('pts_amount').trim());
+
+          if (isNaN(amount) || amount <= 0) {
+            return i.reply({ embeds: [errorEmbed('Invalid amount.')], ephemeral: true });
+          }
+
+          let targetUser;
+          try {
+            targetUser = await i.client.users.fetch(userId);
+          } catch {
+            return i.reply({ embeds: [errorEmbed('User not found. Make sure the ID is correct.')], ephemeral: true });
+          }
+
+          db.addPoints(targetUser.id, amount);
+          const newPoints = db.getUserPoints(targetUser.id);
+
+          return i.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(COLOR)
+                .setDescription(`✅ | Added **${amount}** points to <@${targetUser.id}>\n> **New Balance: ${newPoints} pts**`)
+            ],
+            ephemeral: true
+          });
+        }
       });
+
+      try { await message.delete(); } catch {}
+      return;
     }
 
-    if (sub === 'removepoints') {
-      if (!hasPointsPermission(message.member)) {
-        return message.reply({ embeds: [errorEmbed('You do not have permission to use this command.')] });
-      }
-      const target = message.mentions.users.first();
-      const amount = parseInt(args[2]);
-      if (!target || isNaN(amount) || amount <= 0) {
-        return message.reply({ embeds: [errorEmbed('Usage: `-points removepoints @user <amount>`')] });
-      }
-      db.removePoints(target.id, amount);
-      const newPoints = db.getUserPoints(target.id);
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#ff4444')
-            .setDescription(`❌ | Removed **${amount}** points from <@${target.id}>\n> **New Balance: ${newPoints} pts**`)
-        ]
-      });
-    }
-
-    if (sub === 'setpoints') {
-      if (!hasPointsPermission(message.member)) {
-        return message.reply({ embeds: [errorEmbed('You do not have permission to use this command.')] });
-      }
-      const target = message.mentions.users.first();
-      const amount = parseInt(args[2]);
-      if (!target || isNaN(amount) || amount < 0) {
-        return message.reply({ embeds: [errorEmbed('Usage: `-points setpoints @user <amount>`')] });
-      }
-      db.setPoints(target.id, amount);
-      return message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(COLOR)
-            .setDescription(`✅ | Set <@${target.id}>'s points to **${amount} pts**`)
-        ]
-      });
-    }
-
-    if (sub === 'top') {
+    // -points top
+    if (args[0] === 'top') {
       const top = db.getTopUsers(10);
-      if (!top.length) {
-        return message.reply({ embeds: [errorEmbed('No points recorded yet.')] });
-      }
+      if (!top.length) return message.reply({ embeds: [errorEmbed('No points recorded yet.')] });
       const medals = ['🥇', '🥈', '🥉'];
       const desc = top.map(([userId, pts], i) => {
         const medal = medals[i] || `**${i + 1}.**`;
@@ -100,6 +182,39 @@ module.exports = {
       });
     }
 
+    // -points addpoints @user amount
+    if (args[0] === 'addpoints') {
+      if (!hasPointsPermission(message.member)) return message.reply({ embeds: [errorEmbed('No permission.')] });
+      const target = message.mentions.users.first();
+      const amount = parseInt(args[2]);
+      if (!target || isNaN(amount) || amount <= 0) return message.reply({ embeds: [errorEmbed('Usage: `-points addpoints @user <amount>`')] });
+      db.addPoints(target.id, amount);
+      const newPoints = db.getUserPoints(target.id);
+      return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setDescription(`✅ | Added **${amount}** pts to <@${target.id}> | Balance: **${newPoints}**`)] });
+    }
+
+    // -points removepoints @user amount
+    if (args[0] === 'removepoints') {
+      if (!hasPointsPermission(message.member)) return message.reply({ embeds: [errorEmbed('No permission.')] });
+      const target = message.mentions.users.first();
+      const amount = parseInt(args[2]);
+      if (!target || isNaN(amount) || amount <= 0) return message.reply({ embeds: [errorEmbed('Usage: `-points removepoints @user <amount>`')] });
+      db.removePoints(target.id, amount);
+      const newPoints = db.getUserPoints(target.id);
+      return message.reply({ embeds: [new EmbedBuilder().setColor('#ff4444').setDescription(`❌ | Removed **${amount}** pts from <@${target.id}> | Balance: **${newPoints}**`)] });
+    }
+
+    // -points setpoints @user amount
+    if (args[0] === 'setpoints') {
+      if (!hasPointsPermission(message.member)) return message.reply({ embeds: [errorEmbed('No permission.')] });
+      const target = message.mentions.users.first();
+      const amount = parseInt(args[2]);
+      if (!target || isNaN(amount) || amount < 0) return message.reply({ embeds: [errorEmbed('Usage: `-points setpoints @user <amount>`')] });
+      db.setPoints(target.id, amount);
+      return message.reply({ embeds: [new EmbedBuilder().setColor(COLOR).setDescription(`✅ | Set <@${target.id}>'s points to **${amount}**`)] });
+    }
+
+    // -points / -points @user
     const target = message.mentions.users.first() || message.author;
     const points = db.getUserPoints(target.id);
     const top = db.getTopUsers(100);
@@ -120,3 +235,7 @@ module.exports = {
     });
   }
 };
+
+function errorEmbed(msg) {
+  return new EmbedBuilder().setColor('#ff4444').setDescription(`❌ | ${msg}`);
+}
