@@ -10,12 +10,16 @@ const hasPointsPermission = (member) => {
   return member.roles.cache.has(POINTS_ROLE);
 };
 
+function errorEmbed(msg) {
+  return new EmbedBuilder().setColor('#ff4444').setDescription(`❌ | ${msg}`);
+}
+
 module.exports = {
   name: 'points',
   aliases: ['نقاط'],
   async execute(message, args, client) {
 
-    // Panel command: -points panel
+    // -points panel
     if (args[0] === 'panel') {
       if (!hasPointsPermission(message.member)) {
         return message.reply({ embeds: [errorEmbed('You do not have permission.')] });
@@ -33,8 +37,8 @@ module.exports = {
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId('pts_give')
-          .setLabel('Give Points')
-          .setEmoji('➕')
+          .setLabel('Transfer Points')
+          .setEmoji('💸')
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId('pts_top')
@@ -45,15 +49,15 @@ module.exports = {
 
       const sent = await message.channel.send({ embeds: [embed], components: [row] });
 
-      const collector = sent.createMessageComponentCollector({ time: 0 }); // no timeout
+      const collector = sent.createMessageComponentCollector();
 
       collector.on('collect', async (i) => {
+
         // View points
         if (i.customId === 'pts_view') {
           const points = db.getUserPoints(i.user.id);
           const top = db.getTopUsers(100);
           const rank = top.findIndex(([id]) => id === i.user.id) + 1;
-
           return i.reply({
             embeds: [
               new EmbedBuilder()
@@ -70,21 +74,17 @@ module.exports = {
           });
         }
 
-        // Give points - only allowed role
+        // Transfer points - open modal
         if (i.customId === 'pts_give') {
-          if (!hasPointsPermission(i.member)) {
-            return i.reply({ embeds: [errorEmbed('You do not have permission to give points.')], ephemeral: true });
-          }
-
           const modal = new ModalBuilder()
             .setCustomId('pts_give_modal')
-            .setTitle('Give Points');
+            .setTitle('Transfer Points');
 
           modal.addComponents(
             new ActionRowBuilder().addComponents(
               new TextInputBuilder()
                 .setCustomId('pts_user_id')
-                .setLabel('User ID')
+                .setLabel('Recipient User ID')
                 .setStyle(TextInputStyle.Short)
                 .setPlaceholder('Enter user ID...')
                 .setRequired(true)
@@ -92,7 +92,7 @@ module.exports = {
             new ActionRowBuilder().addComponents(
               new TextInputBuilder()
                 .setCustomId('pts_amount')
-                .setLabel('Amount')
+                .setLabel('Amount to Transfer')
                 .setStyle(TextInputStyle.Short)
                 .setPlaceholder('Enter amount...')
                 .setRequired(true)
@@ -113,7 +113,6 @@ module.exports = {
             const medal = medals[idx] || `**${idx + 1}.**`;
             return `${medal} <@${userId}> — **${pts}** pts`;
           }).join('\n');
-
           return i.reply({
             embeds: [
               new EmbedBuilder()
@@ -127,13 +126,17 @@ module.exports = {
           });
         }
 
-        // Modal submit
+        // Modal submit - bank transfer logic
         if (i.customId === 'pts_give_modal') {
           const userId = i.fields.getTextInputValue('pts_user_id').trim();
           const amount = parseInt(i.fields.getTextInputValue('pts_amount').trim());
 
           if (isNaN(amount) || amount <= 0) {
             return i.reply({ embeds: [errorEmbed('Invalid amount.')], ephemeral: true });
+          }
+
+          if (userId === i.user.id) {
+            return i.reply({ embeds: [errorEmbed('You cannot transfer points to yourself.')], ephemeral: true });
           }
 
           let targetUser;
@@ -143,14 +146,44 @@ module.exports = {
             return i.reply({ embeds: [errorEmbed('User not found. Make sure the ID is correct.')], ephemeral: true });
           }
 
+          // Check sender balance
+          const senderBalance = db.getUserPoints(i.user.id);
+          if (senderBalance < amount) {
+            return i.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor('#ff4444')
+                  .setTitle('❌ | Insufficient Balance')
+                  .addFields(
+                    { name: '💰 Your Balance', value: `**${senderBalance}** pts`, inline: true },
+                    { name: '💸 Requested', value: `**${amount}** pts`, inline: true },
+                    { name: '❗ Missing', value: `**${amount - senderBalance}** pts`, inline: true },
+                  )
+              ],
+              ephemeral: true
+            });
+          }
+
+          // Deduct from sender, add to receiver
+          db.removePoints(i.user.id, amount);
           db.addPoints(targetUser.id, amount);
-          const newPoints = db.getUserPoints(targetUser.id);
+
+          const senderNew = db.getUserPoints(i.user.id);
+          const receiverNew = db.getUserPoints(targetUser.id);
 
           return i.reply({
             embeds: [
               new EmbedBuilder()
                 .setColor(COLOR)
-                .setDescription(`✅ | Added **${amount}** points to <@${targetUser.id}>\n> **New Balance: ${newPoints} pts**`)
+                .setTitle('✅ | Transfer Complete')
+                .addFields(
+                  { name: '👤 From', value: `<@${i.user.id}>`, inline: true },
+                  { name: '👤 To', value: `<@${targetUser.id}>`, inline: true },
+                  { name: '💸 Amount', value: `**${amount}** pts`, inline: true },
+                  { name: '💰 Your New Balance', value: `**${senderNew}** pts`, inline: true },
+                  { name: '💰 Their New Balance', value: `**${receiverNew}** pts`, inline: true },
+                )
+                .setTimestamp()
             ],
             ephemeral: true
           });
@@ -235,7 +268,3 @@ module.exports = {
     });
   }
 };
-
-function errorEmbed(msg) {
-  return new EmbedBuilder().setColor('#ff4444').setDescription(`❌ | ${msg}`);
-}
