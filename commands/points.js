@@ -29,7 +29,7 @@ module.exports = {
         .setTitle('⬛ Points System')
         .setColor('#000000')
         .setImage(PANEL_IMAGE)
-        .setFooter({ text: 'Points System • Select an option below' });
+        .setFooter({ text: 'B3iony Soso' });
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
