@@ -2,7 +2,6 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
   AttachmentBuilder,
 } = require("discord.js");
 
@@ -15,14 +14,14 @@ const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 20;
 const TIME_TO_START = 40000;
 const COLOR = "#d4be78";
-const emojis = [
-  "1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟",
-  "<:GEleven:1285946860951044128>","<:GTwelve:1285946918383386674>",
-  "<:GThirteen:1285946956157423671>","<:GFourteen:1285947007910940805>",
-  "<:GFifteen:1285947059454611528>","<:GSixteen:1285947087938257020>",
-  "<:GSeventeen:1285947127679422508>","<:GEighteen:1285947168305320000>",
-  "<:GNineteen:1285947288744759307>","<:GTwenty:1285947320508350558>",
-];
+// Sequential number emojis 1-20 (single digits use keycaps, 10+ combine keycaps)
+const digitEmoji = ["0️⃣","1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"];
+const numberToEmoji = (n) => {
+  if (n <= 9) return digitEmoji[n];
+  if (n === 10) return "🔟";
+  return String(n).split("").map((d) => digitEmoji[parseInt(d)]).join("");
+};
+const emojis = Array.from({ length: 20 }, (_, i) => numberToEmoji(i + 1));
 
 module.exports = {
   name: "roulette",
@@ -50,15 +49,10 @@ async function startGame(context, nowTime, callback) {
     roundCounter: 0,
   };
 
-  let lobbyEmbed = new EmbedBuilder()
-    .setTitle("🎲 | لعبة روليت")
-    .setDescription(
-      `> **الوقت المتبقي لبدأ اللعبة: <t:${
-        nowTime + TIME_TO_START / 1000
-      }:R>**\n\n> **اللاعبين الحاليين (0 / ${MAX_PLAYERS})**`
-    )
-    .setColor(COLOR)
-    .setFooter({ text: "اضغط على رقم لاحتلاله أو استخدم دخول عشوائي" });
+  const buildLobbyContent = (playerCount, playerListText) =>
+    `🎲 **روليت** | يبدأ <t:${nowTime + TIME_TO_START / 1000}:R> | اللاعبين (${playerCount}/${MAX_PLAYERS})\n${playerListText}`;
+
+  let lobbyContent = buildLobbyContent(0, "لا يوجد لاعبين بعد");
 
   function buildInitialRows() {
     const rows = [];
@@ -103,7 +97,7 @@ async function startGame(context, nowTime, callback) {
   const rows = buildInitialRows();
 
   const sentMessage = await context.reply({
-    embeds: [lobbyEmbed],
+    content: lobbyContent,
     components: rows,
     fetchReply: true,
   });
@@ -112,16 +106,10 @@ async function startGame(context, nowTime, callback) {
     const sorted = [...players].sort((a, b) => a.index - b.index);
     const playerListText =
       sorted.length > 0
-        ? sorted.map((p) => `> ${emojis[p.index]} : <@${p.id}>`).join("\n")
-        : "> لا يوجد لاعبين بعد";
+        ? sorted.map((p) => `${emojis[p.index]} <@${p.id}>`).join(" | ")
+        : "لا يوجد لاعبين بعد";
 
-    lobbyEmbed = EmbedBuilder.from(lobbyEmbed).setDescription(
-      `> **الوقت المتبقي لبدء اللعبة: <t:${
-        nowTime + TIME_TO_START / 1000
-      }:R>**\n\n> **اللاعبين الحاليين (${
-        players.length
-      } / ${MAX_PLAYERS}) :**\n${playerListText}`
-    );
+    lobbyContent = buildLobbyContent(players.length, playerListText);
 
     const newRows = rows.map((row) => {
       const components = row.components.map((button) => {
@@ -151,7 +139,7 @@ async function startGame(context, nowTime, callback) {
     });
 
     try {
-      await sentMessage.edit({ embeds: [lobbyEmbed], components: newRows });
+      await sentMessage.edit({ content: lobbyContent, components: newRows });
     } catch (e) {
       console.error("Failed to update lobby view:", e);
     }
@@ -229,26 +217,13 @@ async function startGame(context, nowTime, callback) {
         });
         await updateLobbyView();
       } else if (i.customId === "explain") {
-        const embed = new EmbedBuilder()
-          .setTitle("🎲 | شرح لعبة روليت")
-          .setDescription(
-            `
-:black_joker:・كيفية المشاركة:
-اضغط على الرقم للاختيار أو زر "دخول عشوائي".
-ستبدأ اللعبة بعد <t:${nowTime + TIME_TO_START / 1000}:R>.
-:blue_book:・كيفية اللعب:
-ستختار العجلة لاعبًا عشوائيًا.
-إذا كنت اللاعب المختار، ستختار لاعبًا لطرده أو استخدام قدرة.
-القدرات: نووي (20نقطة), طرد عكسي (12نقطة), حماية (10نقطة), تجميد (8ن), طرد مرتين (2ن), إحياء (2ن).
-عندما يبقى لاعبان فقط ستُعلن الفائز.
-`
-          )
-          .addFields(
-            { name: "📉 | أدنى عدد للاعبين", value: `${MIN_PLAYERS}`, inline: true },
-            { name: "📈 | أقصى عدد للاعبين", value: `${MAX_PLAYERS}`, inline: true }
-          )
-          .setColor("#5865F2");
-        await i.reply({ embeds: [embed], ephemeral: true });
+        const explainText =
+          `🎲 **شرح روليت** (${MIN_PLAYERS}-${MAX_PLAYERS} لاعب)\n` +
+          `اضغط رقم أو "دخول عشوائي" للمشاركة، تبدأ <t:${nowTime + TIME_TO_START / 1000}:R>.\n` +
+          `العجلة تختار لاعب عشوائي، يقدر يطرد أو يستخدم قدرة:\n` +
+          `☢️ نووي 20ن | 🔁 طرد عكسي 12ن | 🛡️ حماية 10ن | ❄️ تجميد 8ن | 🔥 طرد مرتين 2ن | 🔄 إحياء 2ن\n` +
+          `آخر لاعبين يفوز الناجي 🏆`;
+        await i.reply({ content: explainText, ephemeral: true });
       }
     } catch (error) {
       console.error("Error in lobby collector:", error);
