@@ -18,49 +18,49 @@ module.exports = {
     const p = getPrefix();
 
     const embed = new EmbedBuilder()
-      .setTitle('📖 | Command List')
+      .setTitle('📖 | قائمة الأوامر')
       .setColor(COLOR)
       .setThumbnail(message.client.user.displayAvatarURL({ extension: 'png' }))
       .addFields(
         {
-          name: '🎮 | Games',
+          name: '🎮 | الألعاب',
           value: [
-            `\`${p}roulette\` — Roulette (up to 20 players)`,
-            `\`${p}mafia\` — Mafia game`,
-            `\`${p}xo\` — Tic-Tac-Toe tournament`,
-            `\`${p}rps\` — Rock Paper Scissors tournament`,
-            `\`${p}bomb\` — Bomb game`,
-            `\`${p}chairs\` — Musical chairs`,
-            `\`${p}dice\` — Dice game`,
-            `\`${p}hide\` — Hide & Seek`,
-            `\`${p}replica\` — Name Animal Plant Object`,
+            `\`${p}roulette\` — روليت (حتى 20 لاعب)`,
+            `\`${p}mafia\` — لعبة المافيا`,
+            `\`${p}xo\` — إكس أو`,
+            `\`${p}rps\` — حجرة ورقة مقص`,
+            `\`${p}bomb\` — لعبة القنبلة`,
+            `\`${p}chairs\` — الكراسي الموسيقية`,
+            `\`${p}dice\` — لعبة النرد`,
+            `\`${p}hide\` — الغميضة`,
+            `\`${p}replica\` — نبات جماد حيوان`,
           ].join('\n'),
           inline: false,
         },
         {
-          name: '💰 | Points',
+          name: '💰 | النقاط',
           value: [
-            `\`${p}points\` — View your points & rank`,
-            `\`${p}points @user\` — View another user's points`,
-            `\`${p}points top\` — Top 10 leaderboard`,
-            `\`${p}points addpoints @user <amount>\` — Add points *(admin)*`,
-            `\`${p}points removepoints @user <amount>\` — Remove points *(admin)*`,
-            `\`${p}points setpoints @user <amount>\` — Set points *(admin)*`,
+            `\`${p}points\` — عرض نقاطك وترتيبك`,
+            `\`${p}points @مستخدم\` — عرض نقاط شخص آخر`,
+            `\`${p}points top\` — لوحة أعلى 10 لاعبين`,
+            `\`${p}points addpoints @مستخدم <عدد>\` — إضافة نقاط *(مسؤول)*`,
+            `\`${p}points removepoints @مستخدم <عدد>\` — خصم نقاط *(مسؤول)*`,
+            `\`${p}points setpoints @مستخدم <عدد>\` — تعيين نقاط *(مسؤول)*`,
           ].join('\n'),
           inline: false,
         },
         {
-          name: '⚙️ | Settings',
+          name: '⚙️ | الإعدادات',
           value: [
-            `\`${p}setchat\` — Set current channel as game channel`,
-            `\`${p}setchat #channel\` — Set specific channel as game channel`,
-            `\`${p}removechat\` — Remove current channel from game channels`,
-            `\`${p}removechat #channel\` — Remove specific channel`,
+            `\`${p}setchat\` — تعيين القناة الحالية لقناة ألعاب`,
+            `\`${p}setchat #قناة\` — تعيين قناة محددة`,
+            `\`${p}removechat\` — إزالة القناة الحالية`,
+            `\`${p}removechat #قناة\` — إزالة قناة محددة`,
           ].join('\n'),
           inline: false,
         }
       )
-      .setFooter({ text: `Prefix: ${p}  •  Use ${p}help for this menu` })
+      .setFooter({ text: `البادئة: ${p}  •  اكتب ${p}help لعرض هذه القائمة` })
       .setTimestamp();
 
     return message.reply({ embeds: [embed] });
