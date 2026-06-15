@@ -1,12 +1,17 @@
 const fs = require('fs');
 
-if (!fs.existsSync('./points.json')) {
-  fs.writeFileSync('./points.json', JSON.stringify({}));
+// سطر جديد للتأكد من وجود مجلد التخزين الدائم أولاً
+if (!fs.existsSync('/app/data')) {
+  fs.mkdirSync('/app/data', { recursive: true });
+}
+
+if (!fs.existsSync('/app/data/points.json')) {
+  fs.writeFileSync('/app/data/points.json', JSON.stringify({}));
 }
 
 const readDatabase = () => {
   try {
-    const data = fs.readFileSync('./points.json', 'utf8');
+    const data = fs.readFileSync('/app/data/points.json', 'utf8');
     return JSON.parse(data);
   } catch (err) {
     console.error('Error reading database:', err);
@@ -16,7 +21,7 @@ const readDatabase = () => {
 
 const saveDatabase = (data) => {
   try {
-    fs.writeFileSync('./points.json', JSON.stringify(data, null, 2));
+    fs.writeFileSync('/app/data/points.json', JSON.stringify(data, null, 2));
     return true;
   } catch (err) {
     console.error('Error saving to database:', err);
