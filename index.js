@@ -318,3 +318,95 @@ client.on('interactionCreate', async (interaction) => {
 
 client.login(process.env.TOKEN).catch(() => console.log("Invalid Token"));
 module.exports = { client };
+
+// ===== Role Creator Interactions =====
+const ROLE_ABOVE = "1501984358884708465";
+const ROLE_BELOW = "1515471434003124278";
+
+client.on('interactionCreate', async (roleInteraction) => {
+  try {
+
+    // Button - open modal
+    if (roleInteraction.isButton() && roleInteraction.customId === 'create_role_btn') {
+      if (!roleInteraction.member.permissions.has(8n)) {
+        return roleInteraction.reply({ embeds: [new EmbedBuilder().setColor('#ff4444').setDescription('❌ | No permission.')], ephemeral: true });
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId('create_role_modal')
+        .setTitle('Create New Role');
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('role_name')
+            .setLabel('Role Name')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Enter role name...')
+            .setMinLength(1)
+            .setMaxLength(100)
+            .setRequired(true)
+        )
+      );
+
+      return roleInteraction.showModal(modal);
+    }
+
+    // Modal submit - create the role
+    if (roleInteraction.isModalSubmit() && roleInteraction.customId === 'create_role_modal') {
+      if (!roleInteraction.member.permissions.has(8n)) {
+        return roleInteraction.reply({ embeds: [new EmbedBuilder().setColor('#ff4444').setDescription('❌ | No permission.')], ephemeral: true });
+      }
+
+      await roleInteraction.deferReply({ ephemeral: true });
+
+      const roleName = roleInteraction.fields.getTextInputValue('role_name').trim();
+      const guild = roleInteraction.guild;
+
+      // Get the two boundary roles
+      const roleAbove = guild.roles.cache.get(ROLE_ABOVE);
+      const roleBelow = guild.roles.cache.get(ROLE_BELOW);
+
+      if (!roleAbove || !roleBelow) {
+        return roleInteraction.editReply({
+          embeds: [new EmbedBuilder().setColor('#ff4444').setDescription('❌ | Boundary roles not found. Check the role IDs.')]
+        });
+      }
+
+      // Create the role
+      const newRole = await guild.roles.create({
+        name: roleName,
+        color: 0x000000,
+        reason: `Created by ${roleInteraction.user.tag} via Role Creator`,
+      });
+
+      // Position it right above ROLE_ABOVE (between the two roles)
+      // roleBelow is higher position, roleAbove is lower position
+      const targetPosition = roleAbove.position + 1;
+
+      await guild.roles.setPositions([
+        { role: newRole.id, position: targetPosition }
+      ]);
+
+      return roleInteraction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor('#000000')
+            .setTitle('✅ | Role Created')
+            .addFields(
+              { name: '🏷️ Role', value: `<@&${newRole.id}>`, inline: true },
+              { name: '📋 Name', value: `\`${roleName}\``, inline: true },
+              { name: '📍 Position', value: `Between <@&${roleBelow.id}> and <@&${roleAbove.id}>`, inline: false },
+            )
+            .setTimestamp()
+        ]
+      });
+    }
+
+  } catch (err) {
+    console.error('Role Creator error:', err);
+    try {
+      await roleInteraction.reply({ embeds: [new EmbedBuilder().setColor('#ff4444').setDescription(`❌ | Error: ${err.message}`)], ephemeral: true });
+    } catch {}
+  }
+});
