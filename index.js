@@ -196,7 +196,7 @@ client.on('interactionCreate', async (interaction) => {
                 { name: '💰 Points', value: `**${points}** pts`, inline: true },
                 { name: '🏅 Rank', value: rank ? `**#${rank}**` : '—', inline: true },
               )
-              .setColor(POINTS_COLOR)
+              .setColor('#000000')
               .setTimestamp()
           ],
           ephemeral: true
@@ -243,11 +243,11 @@ client.on('interactionCreate', async (interaction) => {
             new EmbedBuilder()
               .setTitle('🏆 | Leaderboard')
               .setDescription(desc)
-              .setColor(POINTS_COLOR)
+              .setColor('#000000')
               .setFooter({ text: 'Top 10 players by points' })
               .setTimestamp()
           ],
-          ephemeral: false
+          ephemeral: true
         });
       }
     }
@@ -296,7 +296,7 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({
           embeds: [
             new EmbedBuilder()
-              .setColor(POINTS_COLOR)
+              .setColor('#000000')
               .setTitle('✅ | Transfer Complete')
               .addFields(
                 { name: '👤 From', value: `<@${interaction.user.id}>`, inline: true },
