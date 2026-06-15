@@ -48,8 +48,8 @@ function sleep(time) {
 }
 
 function getRandomWinPoints() {
-    const min = 5;
-    const max = 5;
+    const min = 12;
+  const max = 12;
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
@@ -400,7 +400,7 @@ async function createWinnerImage(winner) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = "60px NotoArabic, Arial";
+  ctx.font = "60px Arial";
   ctx.textAlign = "center";
   ctx.fillText("الفائز", canvas.width / 2, 100);
 
@@ -422,7 +422,7 @@ async function createWinnerImage(winner) {
   ctx.restore();
 
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = "40px NotoArabic, Arial";
+  ctx.font = "40px Arial";
   ctx.fillText(winner.displayName, canvas.width / 2, 260);
 
   return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: "winner.png" });
