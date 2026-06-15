@@ -95,7 +95,7 @@ function sleep(time) {
 
 function getRandomWinPoints() {
     const min = 5;
-    const max = 5;
+  const max = 5;
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
