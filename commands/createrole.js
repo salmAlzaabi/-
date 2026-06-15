@@ -16,7 +16,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle('🏷️ | Role Creator')
-      .setDescription('> Click the button below to create a new role.\n> The role will be placed between the two designated positions.')
+      .setDescription('> create a new role.\n> This embed is customized for Soso.')
       .setColor(COLOR)
       .setFooter({ text: 'Role Creator System' });
 
