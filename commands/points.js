@@ -17,7 +17,7 @@ function errorEmbed(msg) {
 module.exports = {
   name: 'points',
   aliases: ['نقاط'],
-  async execute(message, args, client) {
+  async execute(message, args) {
 
     // -points panel
     if (args[0] === 'panel') {
@@ -47,149 +47,7 @@ module.exports = {
           .setStyle(ButtonStyle.Primary),
       );
 
-      const sent = await message.channel.send({ embeds: [embed], components: [row] });
-
-      const collector = sent.createMessageComponentCollector();
-
-      collector.on('collect', async (i) => {
-
-        // View points
-        if (i.customId === 'pts_view') {
-          const points = db.getUserPoints(i.user.id);
-          const top = db.getTopUsers(100);
-          const rank = top.findIndex(([id]) => id === i.user.id) + 1;
-          return i.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setTitle(`🎮 | ${i.user.username}'s Points`)
-                .setThumbnail(i.user.displayAvatarURL({ extension: 'png' }))
-                .addFields(
-                  { name: '💰 Points', value: `**${points}** pts`, inline: true },
-                  { name: '🏅 Rank', value: rank ? `**#${rank}**` : '—', inline: true },
-                )
-                .setColor(COLOR)
-                .setTimestamp()
-            ],
-            ephemeral: true
-          });
-        }
-
-        // Transfer points - open modal
-        if (i.customId === 'pts_give') {
-          const modal = new ModalBuilder()
-            .setCustomId('pts_give_modal')
-            .setTitle('Transfer Points');
-
-          modal.addComponents(
-            new ActionRowBuilder().addComponents(
-              new TextInputBuilder()
-                .setCustomId('pts_user_id')
-                .setLabel('Recipient User ID')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('Enter user ID...')
-                .setRequired(true)
-            ),
-            new ActionRowBuilder().addComponents(
-              new TextInputBuilder()
-                .setCustomId('pts_amount')
-                .setLabel('Amount to Transfer')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('Enter amount...')
-                .setRequired(true)
-            )
-          );
-
-          return i.showModal(modal);
-        }
-
-        // Leaderboard
-        if (i.customId === 'pts_top') {
-          const top = db.getTopUsers(10);
-          if (!top.length) {
-            return i.reply({ embeds: [errorEmbed('No points recorded yet.')], ephemeral: true });
-          }
-          const medals = ['🥇', '🥈', '🥉'];
-          const desc = top.map(([userId, pts], idx) => {
-            const medal = medals[idx] || `**${idx + 1}.**`;
-            return `${medal} <@${userId}> — **${pts}** pts`;
-          }).join('\n');
-          return i.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setTitle('🏆 | Leaderboard')
-                .setDescription(desc)
-                .setColor(COLOR)
-                .setFooter({ text: 'Top 10 players by points' })
-                .setTimestamp()
-            ],
-            ephemeral: false
-          });
-        }
-
-        // Modal submit - bank transfer logic
-        if (i.customId === 'pts_give_modal') {
-          const userId = i.fields.getTextInputValue('pts_user_id').trim();
-          const amount = parseInt(i.fields.getTextInputValue('pts_amount').trim());
-
-          if (isNaN(amount) || amount <= 0) {
-            return i.reply({ embeds: [errorEmbed('Invalid amount.')], ephemeral: true });
-          }
-
-          if (userId === i.user.id) {
-            return i.reply({ embeds: [errorEmbed('You cannot transfer points to yourself.')], ephemeral: true });
-          }
-
-          let targetUser;
-          try {
-            targetUser = await i.client.users.fetch(userId);
-          } catch {
-            return i.reply({ embeds: [errorEmbed('User not found. Make sure the ID is correct.')], ephemeral: true });
-          }
-
-          // Check sender balance
-          const senderBalance = db.getUserPoints(i.user.id);
-          if (senderBalance < amount) {
-            return i.reply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor('#ff4444')
-                  .setTitle('❌ | Insufficient Balance')
-                  .addFields(
-                    { name: '💰 Your Balance', value: `**${senderBalance}** pts`, inline: true },
-                    { name: '💸 Requested', value: `**${amount}** pts`, inline: true },
-                    { name: '❗ Missing', value: `**${amount - senderBalance}** pts`, inline: true },
-                  )
-              ],
-              ephemeral: true
-            });
-          }
-
-          // Deduct from sender, add to receiver
-          db.removePoints(i.user.id, amount);
-          db.addPoints(targetUser.id, amount);
-
-          const senderNew = db.getUserPoints(i.user.id);
-          const receiverNew = db.getUserPoints(targetUser.id);
-
-          return i.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(COLOR)
-                .setTitle('✅ | Transfer Complete')
-                .addFields(
-                  { name: '👤 From', value: `<@${i.user.id}>`, inline: true },
-                  { name: '👤 To', value: `<@${targetUser.id}>`, inline: true },
-                  { name: '💸 Amount', value: `**${amount}** pts`, inline: true },
-                  { name: '💰 Your New Balance', value: `**${senderNew}** pts`, inline: true },
-                  { name: '💰 Their New Balance', value: `**${receiverNew}** pts`, inline: true },
-                )
-                .setTimestamp()
-            ],
-            ephemeral: true
-          });
-        }
-      });
-
+      await message.channel.send({ embeds: [embed], components: [row] });
       try { await message.delete(); } catch {}
       return;
     }
