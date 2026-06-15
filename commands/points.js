@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../database.js');
 
 const COLOR = "#d4be78";
@@ -26,25 +26,27 @@ module.exports = {
       }
 
       const embed = new EmbedBuilder()
-        .setColor(COLOR)
-        .setImage(PANEL_IMAGE);
+        .setTitle('⬛ Points System')
+        .setColor('#000000')
+        .setImage(PANEL_IMAGE)
+        .setFooter({ text: 'Points System • Select an option below' });
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('pts_view')
-          .setLabel('Points')
+          .setLabel('My Points')
           .setEmoji('💰')
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId('pts_give')
-          .setLabel('Transfer Points')
+          .setLabel('Transfer')
           .setEmoji('💸')
-          .setStyle(ButtonStyle.Success),
+          .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId('pts_top')
           .setLabel('Leaderboard')
           .setEmoji('🏆')
-          .setStyle(ButtonStyle.Primary),
+          .setStyle(ButtonStyle.Secondary),
       );
 
       await message.channel.send({ embeds: [embed], components: [row] });
@@ -66,7 +68,7 @@ module.exports = {
           new EmbedBuilder()
             .setTitle('🏆 | Leaderboard')
             .setDescription(desc)
-            .setColor(COLOR)
+            .setColor('#000000')
             .setFooter({ text: 'Top 10 players by points' })
             .setTimestamp()
         ]
@@ -120,7 +122,7 @@ module.exports = {
             { name: '💰 Points', value: `**${points}** pts`, inline: true },
             { name: '🏅 Rank', value: rank ? `**#${rank}**` : '—', inline: true },
           )
-          .setColor(COLOR)
+          .setColor('#000000')
           .setTimestamp()
       ]
     });
