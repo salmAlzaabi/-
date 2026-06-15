@@ -26,7 +26,7 @@ module.exports = {
       }
 
       const embed = new EmbedBuilder()
-        .setTitle('⬛ Points System')
+        .setTitle(' Points System')
         .setColor('#000000')
         .setImage(PANEL_IMAGE)
         .setFooter({ text: 'B3iony Soso' });
