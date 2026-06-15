@@ -72,7 +72,7 @@ const msg = {
 
 async function win(player, context) {
   try {
-    db.addPoints(player, 5);
+    db.addPoints(player, 10);
   } catch (err) {
     console.error(`[Chairs] Failed to add points: ${err}`);
     context.channel.send(`حدث خطأ أثناء إضافة النقاط للفائز.`);
