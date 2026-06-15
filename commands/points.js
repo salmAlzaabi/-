@@ -35,17 +35,14 @@ module.exports = {
         new ButtonBuilder()
           .setCustomId('pts_view')
           .setLabel('My Points')
-          .setEmoji('💰')
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId('pts_give')
           .setLabel('Transfer')
-          .setEmoji('💸')
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId('pts_top')
           .setLabel('Leaderboard')
-          .setEmoji('🏆')
           .setStyle(ButtonStyle.Secondary),
       );
 
