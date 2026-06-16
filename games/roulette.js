@@ -3,6 +3,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
   AttachmentBuilder,
+  EmbedBuilder, // تم إضافة الـ Embed هنا
 } = require("discord.js");
 
 const db = require("../database.js");
@@ -14,31 +15,18 @@ const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 20;
 const TIME_TO_START = 40000;
 const COLOR = "#d4be78";
-// Numbers 1-10 use valid single-emoji keycaps. Discord does NOT allow
-// multi-emoji strings in setEmoji(), so 11-20 use a plain text label instead.
-const digitEmoji = ["0️⃣","1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"];
-const numberToEmoji = (n) => {
-  if (n <= 9) return digitEmoji[n];
-  if (n === 10) return "🔟";
-  return null; // no single emoji exists for 11-20
-};
-const emojis = Array.from({ length: 20 }, (_, i) => numberToEmoji(i + 1));
+
+// تم إزالة مصفوفات الإيموجي والاعتماد على الأرقام العادية فقط
 const numberLabel = (n) => String(n);
 
-// Apply the correct number representation to a button: emoji for 1-10,
-// text label for 11-20 (Discord disallows multi-char emoji strings).
 function applyNumberToButton(builder, index, fallbackLabel) {
-  const emoji = emojis[index];
-  if (emoji) {
-    return builder.setEmoji(emoji).setLabel(fallbackLabel ?? "\u200B");
-  }
   const num = numberLabel(index + 1);
   return builder.setLabel(fallbackLabel ? `${num} | ${fallbackLabel}` : num);
 }
 
-// Text representation of a player's number for use in plain messages.
+// تعديل طريقة العرض لتكون بالشكل المطلوبة: ( الرقم )
 function numberDisplay(index) {
-  return emojis[index] || `#${index + 1}`;
+  return `(${index + 1})`;
 }
 
 module.exports = {
@@ -59,7 +47,6 @@ function clampLabel(s, max = 80) {
 async function startGame(context, nowTime, callback) {
   const players = [];
 
-  // Per-game state (no longer module-level globals)
   const gameState = {
     currentlySendingImage: false,
     lastSelectedPlayerId: null,
@@ -67,10 +54,19 @@ async function startGame(context, nowTime, callback) {
     roundCounter: 0,
   };
 
-  const buildLobbyContent = (playerCount, playerListText) =>
-    `🎲 **روليت** | يبدأ <t:${nowTime + TIME_TO_START / 1000}:R> | اللاعبين (${playerCount}/${MAX_PLAYERS})\n${playerListText}`;
+  // دالة بناء الـ Embed بدلاً من الرسالة العادية ليكون المظهر منظم واحترافي
+  const buildLobbyEmbed = (playerCount, playerListText) => {
+    return new EmbedBuilder()
+      .setColor(COLOR)
+      .setTitle("🎲 لعبة الروليت")
+      .setDescription(`ينتظر اللاعبين للانضمام، تبدأ اللعبة خلال <t:${nowTime + TIME_TO_START / 1000}:R>`)
+      .addFields(
+        { name: `👥 اللاعبين (${playerCount}/${MAX_PLAYERS})`, value: playerListText }
+      )
+      .setTimestamp();
+  };
 
-  let lobbyContent = buildLobbyContent(0, "لا يوجد لاعبين بعد");
+  let lobbyEmbed = buildLobbyEmbed(0, "لا يوجد لاعبين بعد");
 
   function buildInitialRows() {
     const rows = [];
@@ -78,7 +74,7 @@ async function startGame(context, nowTime, callback) {
       const row = new ActionRowBuilder();
       for (let j = 0; j < 5; j++) {
         const index = i * 5 + j;
-        if (index < emojis.length || index < 20) {
+        if (index < 20) {
           row.addComponents(
             applyNumberToButton(
               new ButtonBuilder()
@@ -115,8 +111,9 @@ async function startGame(context, nowTime, callback) {
 
   const rows = buildInitialRows();
 
+  // إرسال اللوبي كـ Embed
   const sentMessage = await context.reply({
-    content: lobbyContent,
+    embeds: [lobbyEmbed],
     components: rows,
     fetchReply: true,
   });
@@ -128,7 +125,7 @@ async function startGame(context, nowTime, callback) {
         ? sorted.map((p) => `${numberDisplay(p.index)} <@${p.id}>`).join(" | ")
         : "لا يوجد لاعبين بعد";
 
-    lobbyContent = buildLobbyContent(players.length, playerListText);
+    lobbyEmbed = buildLobbyEmbed(players.length, playerListText);
 
     const newRows = rows.map((row) => {
       const components = row.components.map((button) => {
@@ -143,15 +140,9 @@ async function startGame(context, nowTime, callback) {
 
             if (p) {
               const taken = ButtonBuilder.from(button).setDisabled(true);
-              if (emojis[idx]) {
-                return taken.setLabel(clampLabel(p.username, 80));
-              }
               return taken.setLabel(clampLabel(`${idx + 1} - ${p.username}`, 80));
             } else {
               const free = ButtonBuilder.from(button).setDisabled(false);
-              if (emojis[idx]) {
-                return free.setLabel("\u200B");
-              }
               return free.setLabel(String(idx + 1));
             }
           }
@@ -162,7 +153,7 @@ async function startGame(context, nowTime, callback) {
     });
 
     try {
-      await sentMessage.edit({ content: lobbyContent, components: newRows });
+      await sentMessage.edit({ embeds: [lobbyEmbed], components: newRows });
     } catch (e) {
       console.error("Failed to update lobby view:", e);
     }
@@ -214,9 +205,9 @@ async function startGame(context, nowTime, callback) {
         const ok = await checkJoiningGameAbility(i, players);
         if (!ok) return;
 
-        let index = Math.floor(Math.random() * emojis.length);
+        let index = Math.floor(Math.random() * 20);
         while (players.some((p) => p.index === index))
-          index = Math.floor(Math.random() * emojis.length);
+          index = Math.floor(Math.random() * 20);
 
         players.push(makePlayer(i, index));
         await i.reply({
@@ -319,7 +310,6 @@ async function prepareRound(context, players, eliminatedPlayers, client, callbac
     gameState.lastRoundTime = Date.now();
     gameState.roundCounter++;
 
-    // ----- Win condition -----
     if (players.length === 1) {
       const winner = players[0];
       await win(winner.id, context);
@@ -329,7 +319,6 @@ async function prepareRound(context, players, eliminatedPlayers, client, callbac
       return;
     }
 
-    // ----- Final round (2 players left) -----
     if (players.length === 2) {
       if (gameState.currentlySendingImage) return;
       gameState.currentlySendingImage = true;
@@ -360,7 +349,6 @@ async function prepareRound(context, players, eliminatedPlayers, client, callbac
       }
     }
 
-    // ----- Regular round -----
     if (gameState.currentlySendingImage) return;
     gameState.currentlySendingImage = true;
 
@@ -381,7 +369,6 @@ async function prepareRound(context, players, eliminatedPlayers, client, callbac
 
       const chooserObj = players.find((p) => p.id === randomPlayerId);
       if (!chooserObj) {
-        // Safety: chosen player no longer exists, restart round
         return prepareRound(context, players, eliminatedPlayers, client, callback, gameState);
       }
       if (!chooserObj.usedAbilities) chooserObj.usedAbilities = new Set();
@@ -1087,13 +1074,8 @@ async function win(player, context) {
   }
 }
 
-async function lose(player, context) {
-  // Intentionally no point penalty for losing.
-}
-
-async function removeLoss(player, context) {
-  // Intentionally no-op: revive does not restore any deducted points.
-}
+async function lose(player, context) {}
+async function removeLoss(player, context) {}
 
 function sleep(time) {
   return new Promise((resolve) => setTimeout(resolve, time));
